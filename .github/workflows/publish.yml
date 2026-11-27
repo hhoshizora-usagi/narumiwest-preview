@@ -1,0 +1,37 @@
+name: publish-site
+
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: Download URL of the built index.html
+        required: true
+      sha256:
+        description: Expected sha256 of index.html
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download site
+        env:
+          SITE_URL: ${{ inputs.url }}
+          SITE_SHA: ${{ inputs.sha256 }}
+        run: |
+          curl -fsSL -o index.html "$SITE_URL"
+          echo "$SITE_SHA  index.html" | sha256sum -c -
+          printf 'User-agent: *\nDisallow: /\n' > robots.txt
+          touch .nojekyll
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html robots.txt .nojekyll
+          git commit -m "Update site (index.html)" || echo "nothing to commit"
+          git push origin HEAD:main
+          git push -f origin HEAD:gh-pages
